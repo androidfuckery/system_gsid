@@ -17,9 +17,13 @@
 #include "libgsi/libgsi.h"
 
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
+#include <cctype>
+#include <set>
 #include <string>
+#include <string_view>
 
 #include <android-base/file.h>
 #include <android-base/parseint.h>
@@ -37,12 +41,37 @@ using android::base::ReadFileToString;
 using android::base::Split;
 using android::base::unique_fd;
 
+bool IsValidSlotName(const std::string& name) {
+    if (name.empty() || name == "." || name == "..") {
+        return false;
+    }
+    for (char c : name) {
+        if (!isalnum(c) && c != '_' && c != '-' && c != '.') {
+            return false;
+        }
+    }
+    static const std::set<std::string_view, std::less<>> kReservedSlotNames = {
+        "booted",
+        "active",
+        "lp_names",
+        "install_status",
+        "one_shot_boot",
+        "avb",
+        "avb_enforce",
+    };
+    return !kReservedSlotNames.contains(name);
+}
+
 bool IsGsiImage() {
     return !access(kGsiSpecificInitRcFile, F_OK);
 }
 
 bool IsGsiRunning() {
-    return !access(kGsiBootedIndicatorFile, F_OK);
+    struct stat buf;
+    if (lstat(kGsiBootedIndicatorFile, &buf) != 0) {
+        return false;
+    }
+    return S_ISREG(buf.st_mode);
 }
 
 bool IsGsiInstalled() {

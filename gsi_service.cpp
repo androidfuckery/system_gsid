@@ -146,13 +146,20 @@ binder::Status GsiService::openInstall(const std::string& install_dir, int* _aid
         *_aidl_return = IGsiService::INSTALL_ERROR_GENERIC;
         return binder::Status::ok();
     }
-    install_dir_ = install_dir;
-    if (int status = ValidateInstallParams(install_dir_)) {
+    // ValidateInstallParams modifies its argument (trailing /), so we need a non-const copy.
+    std::string working_install_dir = install_dir;
+    if (int status = ValidateInstallParams(working_install_dir)) {
         *_aidl_return = status;
         return binder::Status::ok();
     }
     std::string message;
-    auto dsu_slot = GetDsuSlot(install_dir_);
+    auto dsu_slot = GetDsuSlot(working_install_dir);
+    if (!IsValidSlotName(dsu_slot)) {
+        LOG(ERROR) << "Invalid DSU slot name: " << dsu_slot;
+        *_aidl_return = IGsiService::INSTALL_ERROR_GENERIC;
+        return binder::Status::ok();
+    }
+    install_dir_ = std::move(working_install_dir);
     if (!RemoveFileIfExists(GetCompleteIndication(dsu_slot), &message)) {
         LOG(ERROR) << message;
     }

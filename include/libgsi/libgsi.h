@@ -99,6 +99,9 @@ static inline bool GetActiveDsu(std::string* active_dsu) {
     return android::base::ReadFileToString(kDsuActiveFile, active_dsu);
 }
 
+// Returns true if the slot name is valid.
+bool IsValidSlotName(const std::string& name);
+
 // Returns true if the currently running system image is a GSI (both dynamic and flashed).
 bool IsGsiImage();
 

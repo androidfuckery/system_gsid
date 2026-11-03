@@ -22,6 +22,7 @@ import static org.junit.Assert.assertTrue;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
+import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
 
 import org.junit.After;
@@ -78,6 +79,12 @@ public class DsuGsiToolTest extends DsuTestBase {
 
         // These commands should run without any error
         assertShellCommand("gsi_tool enable");
+
+        // Try to enable a non-installed slot
+        var result = getDevice().executeShellV2Command("gsi_tool enable -d bar");
+        assertFalse("Expected enable -d bar to fail", result.getStatus() == CommandStatus.SUCCESS);
+        assertTrue(result.getStderr().contains("Error re-enabling GSI"));
+
         assertShellCommand("gsi_tool disable");
         assertShellCommand("gsi_tool wipe");
     }
@@ -99,9 +106,31 @@ public class DsuGsiToolTest extends DsuTestBase {
         // These commands should fail on a locked DSU
         var result = getDevice().executeShellV2Command("gsi_tool enable");
         assertFalse(result.getStatus() == CommandStatus.SUCCESS);
+        result = getDevice().executeShellV2Command("gsi_tool enable -d " + slotName);
+        assertFalse(result.getStatus() == CommandStatus.SUCCESS);
         result = getDevice().executeShellV2Command("gsi_tool disable");
         assertFalse(result.getStatus() == CommandStatus.SUCCESS);
         result = getDevice().executeShellV2Command("gsi_tool wipe");
         assertFalse(result.getStatus() == CommandStatus.SUCCESS);
+    }
+
+    @Test
+    public void testInvalidSlotNames() throws DeviceNotAvailableException {
+        assertAdbRoot();
+        String[] invalidSlots = {".", "..", "booted", "active", "foo@bar"};
+        for (String slot : invalidSlots) {
+            String installDir = "/data/gsi/dsu/" + slot;
+            // We need to provide a dummy size > 0 to pass argument validation in gsi_tool
+            String command = String.format(
+                    "gsi_tool install --gsi-size 1024 --install-dir %s", installDir);
+            CommandResult result = getDevice().executeShellV2Command(command);
+            assertFalse(
+                    String.format("Expected command to fail: %s", command),
+                    result.getStatus() == CommandStatus.SUCCESS);
+            assertTrue(
+                    String.format("Expected error message in stderr for slot: %s, "
+                            + "got: %s", slot, result.getStderr()),
+                    result.getStderr().contains("Could not open DSU installation"));
+        }
     }
 }

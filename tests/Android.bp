@@ -115,3 +115,15 @@ java_test_host {
         "general-tests",
     ],
 }
+
+cc_test {
+    name: "libgsi_test",
+    srcs: [
+        "libgsi_test.cpp",
+    ],
+    shared_libs: [
+        "libbase",
+        "libgsi",
+    ],
+    test_suites: ["device-tests"],
+}
